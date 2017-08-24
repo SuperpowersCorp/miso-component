@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -6,11 +7,12 @@ module Miso.Component where
 
 -- | Miso framework import
 import Miso (Effect(Effect), App, View, Sub)
+import Miso.Lens (get, set, Lens')
+import Miso.Component.Lens ((^.), (&), (.~), (%~))
 import qualified Miso
 
 data Interface pAction pModel cAction cModel = Interface {
-    get      :: pModel -> cModel
-  , set      :: cModel -> pModel -> pModel
+    lens :: Lens' pModel cModel
   , reaction :: cAction -> cModel -> pModel -> Effect pAction pModel }
 
 noReaction :: cAction -> cModel -> pModel -> Effect pAction pModel
@@ -47,7 +49,7 @@ initialAction comp = converter comp . Miso.initialAction . app $ comp
 view :: pm -> Component pa pm ca cm -> View pa
 view pm comp = converter comp <$> cview cm
   where
-    cm = (get . interface $ comp) pm
+    cm = get (lens $ interface comp) pm
     cview = Miso.view . app $ comp
 
 subs :: Component pa pm ca cm -> [Sub pa pm]
@@ -76,7 +78,7 @@ batchSubs = foldr combine (\_ _ -> return ())
 subMap :: UpdaterAction pa pm -> UpdateFn ca cm -> Interface pa pm ca cm -> Sub ca cm
        -> Sub pa pm
 subMap ua cu i csub = \getpm sinkpa ->
-  csub (get i <$> getpm) (sinkpa . makeConverter ua cu i)
+  csub (get (lens i) <$> getpm) (sinkpa . makeConverter ua cu i)
 
 makeConverter :: UpdaterAction pAction pModel
               -> UpdateFn cAction cModel
@@ -85,23 +87,21 @@ makeConverter :: UpdaterAction pAction pModel
 makeConverter ua cu i ca = ua $ makeUpdater ua cu i ca
 
 makeUpdater :: UpdaterAction pAction pModel
-            -> UpdateFn cAction cModel 
+            -> UpdateFn cAction cModel
             -> Interface pAction pModel cAction cModel
             -> cAction
             -> Updater pAction pModel
 makeUpdater ua cu i ca pm =
-  let cm = get i pm
+  let cm = get (lens i) pm
       (Effect cm' caxs) = cu ca cm
-      (Effect pm' paxs) = (reaction i) ca cm $ (set i) cm' pm
+      (Effect pm' paxs) = (reaction i) ca cm $ (set (lens i)) cm' pm
   in
-    Effect pm' $ (fmap (\a -> ua (makeUpdater ua cu i a)) <$> caxs) ++ paxs
+    Effect pm' $ (fmap (ua . makeUpdater ua cu i) <$> caxs) ++ paxs
 
-{-
-view :: pModel -> Component pAction pModel cAction cModel -> View pAction
-view pm c =
-  where
-    mcm =
-    toParentAction cMsg = 
-    cView = Miso.view $ app c
-    cModel = Miso.
+
+{-maybeifyApp :: App model action -> App (model) action
+maybeifyApp a = a {
+    Miso.model = Just (Miso.model a)
+  , 
+                }
 -}

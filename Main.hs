@@ -77,8 +77,7 @@ timer1Comp = C.Component {
     app = Timer.app 10
   , updaterAction = ComponentUpdater
   , interface = C.Interface
-                { get = (^. timer1)
-                , set = \cm pm -> pm & timer1 .~ cm
+                { lens = timer1
                 , reaction = \ca _ pm -> case ca of
                   Timer.Start -> pm <# return (LogMessage "Timer 1 started.")
                   Timer.Buzz -> pm <# return (LogMessage "Timer 1 is buzzing!")
@@ -91,24 +90,11 @@ timer2Comp = C.Component {
     app = Timer.app 20
   , updaterAction = ComponentUpdater
   , interface = C.Interface
-                { get = (^. timer2)
-                , set = \cm pm -> pm & timer2 .~ cm
+                { lens = timer2
                 , reaction = \ca _ pm -> case ca of
                   Timer.Start -> pm <# return (LogMessage "Timer 2 started.")
                   Timer.Buzz -> pm <# return (LogMessage "Timer 2 is buzzing!")
                   _ -> return pm
                 }
   }
-
-
-
-
-
-
-
-timerI :: Lens' Model Timer.Model -> C.Interface Action Model Timer.Action Timer.Model
-timerI tlens = C.Interface
-  { get = (^. tlens)
-  , set = \cm pm -> pm & tlens .~ cm
-  , reaction = C.noReaction }
 
