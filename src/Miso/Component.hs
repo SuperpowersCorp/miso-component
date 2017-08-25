@@ -77,7 +77,7 @@ batchSubs = foldr combine (\_ _ -> return ())
 
 subMap :: UpdaterAction pa pm -> UpdateFn ca cm -> Interface pa pm ca cm -> Sub ca cm
        -> Sub pa pm
-subMap ua cu i csub = \getpm sinkpa ->
+subMap ua cu i csub getpm sinkpa =
   csub (get (lens i) <$> getpm) (sinkpa . makeConverter ua cu i)
 
 makeConverter :: UpdaterAction pAction pModel
