@@ -67,6 +67,9 @@ converter comp = makeConverter
                  (Miso.update . app $ comp)
                  (interface comp)
 
+addInitialAction :: pa -> Component pa pm ca cm -> pa
+addInitialAction pa comp = batchActions (updaterAction comp) [pa, initialAction comp]
+
 batchActions :: UpdaterAction action model -> [action] -> action
 batchActions ua actions = ua $ \m -> Effect m (return <$> actions)
 

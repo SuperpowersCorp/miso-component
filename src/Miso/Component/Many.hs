@@ -101,3 +101,15 @@ remove_ comp = C.converter comp . Remove_
 
 remove :: Component pa pm (Action ca cm) (Model cm) -> ca -> Int -> pa
 remove comp finalAction = C.converter comp . Remove finalAction
+
+viewMap :: pm
+        -> Component pa pm (Action ca cm) (Model cm)
+        -> (cm -> View ca)
+        -> (Int -> cm -> View (Action ca cm) -> Maybe (View (Action ca cm)))
+        -> Map Int (View pa)
+viewMap pm comp viewcm wrapper = fmap (C.converter comp)
+                                 <$> Map.mapMaybeWithKey viewModel' models'
+  where
+    viewModel' n cm = wrapper n cm (SendAction n <$> viewcm cm)
+    models' = models $ get (C.lens . C.interface $ comp) pm
+

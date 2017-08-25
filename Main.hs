@@ -12,6 +12,7 @@ import Miso.String (MisoString, ms)
 import qualified Miso.String as Text
 --import qualified AlarmClock
 import qualified Timer
+import qualified Data.Map as Map
 import Control.Lens ((^.), (&), (.~), (%~), makeLenses, Lens')
 import Miso.Component (Converter, Updater, Component)
 import qualified Miso.Component as C
@@ -41,11 +42,10 @@ main = do
 --  Timer.main
   startApp App {..}
   where
-    initialAction = C.batchActions ComponentUpdater
-                    [ NoOp
-                    , C.initialAction timersComp
-                    , C.initialAction timer1Comp
-                    , C.initialAction timer2Comp ]
+    initialAction =  NoOp
+                     `C.addInitialAction` timersComp
+                     `C.addInitialAction` timer1Comp
+                     `C.addInitialAction` timer2Comp
     model  = Model
              (C.initialModel timersComp)
              (C.initialModel timer1Comp)
@@ -75,10 +75,17 @@ viewModel m = div_ [] [
  , div_ [] [
        div_ [] [ text "Timers:" ]
      , button_ [ onClick $ Many.add_ timersComp ] [ text "Add a Timer" ] 
-     , C.view m timersComp ]
+     , viewTimers m ]
  , div_ [] $ flip fmap (m ^. messageLog) $ \msg ->
      div_ [] [ text msg ]
  ]
+
+viewTimers :: Model -> View Action
+viewTimers m = div_ [] . Map.elems $ Many.viewMap m timersComp Timer.viewModel wrapper
+  where
+    wrapper n _ v = Just $
+      div_ [] [ v
+              , button_ [ onClick $ Many.Remove_ n ] [ text "Delete" ] ]
 
 timersComp :: Component Action Model
               (Many.Action Timer.Action Timer.Model)

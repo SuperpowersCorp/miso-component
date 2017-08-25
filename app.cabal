@@ -23,6 +23,7 @@ executable app-exe
   main-is:             Main.hs
   build-depends:       base
                      , app
+                     , containers
                      , miso
                      , time
                      , lens
