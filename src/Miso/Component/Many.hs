@@ -9,8 +9,8 @@ module Miso.Component.Many where
 import Miso (Effect(Effect), App(App), View, Sub, div_
             , defaultEvents)
 import Miso.Lens (get, set, Lens')
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import qualified Miso
 import qualified Miso.Component as C
 import Miso.Component (Component)

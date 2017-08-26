@@ -9,6 +9,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Miso.Component
                      , Miso.Component.Many
+                     , Miso.Component.Map
                      , Timer
   build-depends:       base
                      , containers
