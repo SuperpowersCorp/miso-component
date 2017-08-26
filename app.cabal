@@ -8,6 +8,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Miso.Component
+                     , Miso.Clean
                      , Miso.Component.Many
                      , Miso.Component.Map
                      , Timer

@@ -59,26 +59,24 @@ main = do
     view   = viewModel
     events = defaultEvents
     subs   = [ keyboardSub $ LogMessage . ms . show]
-             ++ C.subs timer1Comp
-             ++ C.subs timer2Comp
+--             ++ C.subs timer1Comp
+--             ++ C.subs timer2Comp
 
 -- | Updates model, optionally introduces side effects
 updateModel :: Action -> Model -> Effect Action Model
 updateModel Init m = return m
-                     `C.addInitialAction` timer1Comp
-                     `C.addInitialAction` timer1Comp
 updateModel NoOp m = return m
 updateModel (LogMessage msg) m = return $ m & messageLog %~ (++[msg])
 updateModel (ComponentUpdater ca) m = case ca of
-  Timer1 a -> C.updater timer1Comp m a $ \ca' _ m' -> case ca' of
-    Timer.Start -> m' <# return (LogMessage "Timer 1 started.")
-    Timer.Buzz -> m' <# return (LogMessage "Timer 1 is buzzing!")
-    _ -> return m'
+  Timer1 a -> C.updater timer1Comp m a $ \ca _ pm -> case ca of
+    Timer.Start -> pm <# return (LogMessage "Timer 1 started.")
+    Timer.Buzz -> pm <# return (LogMessage "Timer 1 is buzzing!")
+    _ -> return pm
 
-  Timer2 a -> C.updater timer2Comp m a $ \ca' _ m' -> case ca' of
-    Timer.Start -> m' <# return (LogMessage "Timer 2 started.")
-    Timer.Buzz -> m' <# return (LogMessage "Timer 2 is buzzing!")
-    _ -> return m'
+  Timer2 a -> C.updater timer2Comp m a $ \ca _ pm -> case ca of
+    Timer.Start -> pm <# return (LogMessage "Timer 2 started.")
+    Timer.Buzz -> pm <# return (LogMessage "Timer 2 is buzzing!")
+    _ -> return pm
 
 -- | Constructs a virtual DOM from a model
 viewModel :: Model -> View Action
