@@ -11,6 +11,7 @@ library
                      , Miso.Clean
                      , Miso.Component.Many
                      , Miso.Component.Map
+                     , Miso.Component.CleanMap
                      , Timer
   build-depends:       base
                      , containers
