@@ -101,8 +101,8 @@ maybeify app' = app'
         Nothing -> return ()
         Just _ -> sink action
 
-prismify :: App m a -> Prism' s m -> App s a
-prismify app' p = app'
+prismify :: Prism' s m -> App m a -> App s a
+prismify p app' = app'
   { Miso.model = review p  $ Miso.model app'
   , Miso.update = update'
   , Miso.view = view'
