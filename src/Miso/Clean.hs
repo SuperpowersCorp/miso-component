@@ -9,7 +9,10 @@ module Miso.Clean where
 import Miso (Effect(Effect), App, View, Sub)
 import Miso.Lens (get, set, Lens')
 import Miso.Component.Lens ((^.), (&), (.~), (%~))
+import Data.Maybe (fromMaybe)
 import qualified Miso
+
+import Control.Lens (Prism', review, preview)
 
 {-
 data Interface pAction pModel cAction cModel = Interface {
@@ -78,3 +81,46 @@ updater comp pm ca reaction =
   in
     Effect pm' $ (fmap (converter comp) <$> caxs) ++ paxs
 
+maybeify :: App m a -> App (Maybe m) a
+maybeify app' = app'
+  { Miso.model = Just $ Miso.model app'
+  , Miso.update = update'
+  , Miso.view = view'
+  , Miso.subs = fixsub <$> Miso.subs app' }
+  where
+    update' _ Nothing = return Nothing
+    update' a (Just m) = Just <$> Miso.update app' a m
+
+    view' Nothing = Miso.div_ [] []
+    view' (Just m) = Miso.view app' m
+
+    fixsub msub getmm sink =
+      msub (fromMaybe (Miso.model app') <$> getmm) $ \action -> do
+      mm <- getmm
+      case mm of
+        Nothing -> return ()
+        Just _ -> sink action
+
+prismify :: App m a -> Prism' s m -> App s a
+prismify app' p = app'
+  { Miso.model = review p  $ Miso.model app'
+  , Miso.update = update'
+  , Miso.view = view'
+  , Miso.subs = fixsub <$> Miso.subs app'
+  }
+  where
+    update' a pm = case preview p pm of
+      Just m -> review p <$> Miso.update app' a m
+      Nothing -> return pm
+
+    view' pm = case preview p pm of
+      Just m -> Miso.view app' m
+      Nothing -> Miso.div_ [] []
+
+    fixsub msub getpm sink =
+      msub (fromMaybe (Miso.model app') . preview p <$> getpm)
+      $ \action -> do
+        pm <- getpm
+        case preview p pm of
+          Nothing -> return ()
+          Just _ -> sink action

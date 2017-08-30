@@ -15,18 +15,26 @@ import qualified Miso.String as Text
 import qualified Timer
 import qualified Data.Map as Map
 import Data.Map (Map)
-import Control.Lens ((^.), (&), (.~), (%~), makeLenses, Lens')
+import Control.Lens ((^.), (&), (.~), (%~), makeLenses, Lens'
+                    , makePrisms, preview)
 import Miso.Clean (Converter, Updater, Component)
 import qualified Miso.Clean as C
 --import qualified Miso.Component.Many as Many
 import qualified Miso.Component.CleanMap as CMap
+import Miso.Lens ( makeLens )
 
 type Text = MisoString
 
+data PageChoice = LoggedOut
+                | PageTimer1 Timer.Model
+                | PageTimer2 Timer.Model
+                deriving (Eq, Show)
+
+makePrisms ''PageChoice
+
 -- | Type synonym for an application model
 data Model = Model {
-    _timer1 :: !Timer.Model
-  , _timer2 :: !Timer.Model
+    _page :: PageChoice
   , _mtimers :: Map Text Timer.Model
   , _messageLog :: [Text]
   } deriving (Eq, Show)
@@ -37,6 +45,7 @@ data Action
   = NoOp
   | Init
   | LogMessage Text
+  | Login
   | ComponentUpdater ComponentTag
 
 data ComponentTag
@@ -53,8 +62,7 @@ main = do
   where
     initialAction =  Init
     model  = Model
-             (C.initialModel timer1Comp)
-             (C.initialModel timer2Comp)
+             LoggedOut
              Map.empty
              [ "Welcome to the app."
              , "Start clicking buttons." ]
@@ -99,17 +107,14 @@ updateModel (ComponentUpdater ca) m = case ca of
 -- | Constructs a virtual DOM from a model
 viewModel :: Model -> View Action
 viewModel m = div_ [] [
-   text "Hey there"
- , div_ [] [
-       div_ [] [ text "Map Timers:" ]
-     , viewMTimers (m ^. mtimers)
-     ]
- , div_ [] [ text "Some other Timers" ]
- , C.view m timer1Comp
- , C.view m timer2Comp
- , div_ [] $ flip fmap (m ^. messageLog) $ \msg ->
-     div_ [] [ text msg ]
- ]
+  case m ^. page of
+  LoggedOut -> div_ [] [ text "You're not logged in yet, idiot."
+                      , button [ onClick Login ] [ text "Login to Timer1" ]
+                      , button [ onClick Login ] [ text "Login to Timer1" ] ]
+  PageTimer1 _ -> div_ [] [ div_ [] [ text "Timer 1:" ]
+                          , C.view m timer1Comp ]
+  PageTimer2 _ -> div_ [] [ div_ [] [ text "Timer 1:" ]
+                          , C.view m timer2Comp ]
 
 
 viewMTimers :: Map Text Timer.Model -> View Action
@@ -119,18 +124,26 @@ viewMTimers = div_ [] . fmap vt . Map.toList
                          , button_ [ onClick $ CMap.remove_ mtimersComp k ]
                            [ text $ "Delete \"" <> k <> "\" Timer" ] ]
 
-timer1Comp :: Component Action Model Timer.Action Timer.Model
+timer1Comp :: Component Action Model Timer.Action (Maybe Timer.Model)
 timer1Comp = C.Component {
-    app = Timer.app 10
+    app = C.maybeify $ Timer.app 10
   , converter = ComponentUpdater . Timer1
-  , lens = timer1
+  , lens = makeLens (\m -> preview _PageTimer1 $ m ^. page)
+           (\m mcm -> flip (maybe m) mcm $ \cm ->
+             case m ^. page of
+             PageTimer1 _ -> m & page .~ PageTimer1 cm
+             _ -> m)
   }
 
-timer2Comp :: Component Action Model Timer.Action Timer.Model
+timer2Comp :: Component Action Model Timer.Action (Maybe Timer.Model)
 timer2Comp = C.Component {
-    app = Timer.app 20
+    app = C.maybeify $ Timer.app 20
   , converter = ComponentUpdater . Timer2
-  , lens = timer2
+  , lens =  makeLens (\m -> preview _PageTimer2 $ m ^. page)
+            (\m mcm -> flip (maybe m) mcm $ \cm ->
+             case m ^. page of
+             PageTimer2 _ -> m & page .~ PageTimer2 cm
+             _ -> m)
   }
 
 mtimersComp :: Component Action Model
