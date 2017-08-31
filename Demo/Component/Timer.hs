@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 
 -- | Haskell module declaration
-module Timer where
+module Demo.Component.Timer where
 
 import Control.Monad (forever, void)
 import Control.Lens ((^.), (&), (.~), (%~), makeLenses)

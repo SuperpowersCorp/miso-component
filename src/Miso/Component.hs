@@ -9,30 +9,21 @@ module Miso.Component where
 import Miso (Effect(Effect), App, View, Sub)
 import Miso.Lens (get, set, Lens')
 import Miso.Component.Lens ((^.), (&), (.~), (%~))
+import Data.Maybe (fromMaybe)
 import qualified Miso
 
-data Interface pAction pModel cAction cModel = Interface {
-    lens :: Lens' pModel cModel
-  , reaction :: cAction -> cModel -> pModel -> Effect pAction pModel }
+import Control.Lens (Prism', review, preview)
 
 noReaction :: cAction -> cModel -> pModel -> Effect pAction pModel
 noReaction _ _ = return
 
 type UpdateFn action model = action -> model -> Effect action model
 
---makeComponent :: (pm -> cm)
-
 data Component pAction pModel cAction cModel = Component {
-    app           :: App cModel cAction
-  , interface     :: Interface pAction pModel cAction cModel
-  , updaterAction :: UpdaterAction pAction pModel
+    app       :: App cModel cAction
+  , lens      :: Lens' pModel cModel
+  , converter :: cAction -> pAction
   }
-
-makeComponent :: UpdaterAction pa pm -> Interface pa pm ca cm -> App cm ca
-              -> Component pa pm ca cm
-makeComponent ua i a = Component { app = a
-                                 , interface = i
-                                 , updaterAction = ua }
 
 type Converter cAction pAction = cAction -> pAction
 
@@ -49,62 +40,59 @@ initialAction comp = converter comp . Miso.initialAction . app $ comp
 view :: pm -> Component pa pm ca cm -> View pa
 view pm comp = converter comp <$> cview cm
   where
-    cm = get (lens $ interface comp) pm
+    cm = get (lens comp) pm
     cview = Miso.view . app $ comp
 
+addInitialAction :: Effect pa pm -> Component pa pm ca cm -> Effect pa pm
+addInitialAction (Effect m axs) comp = Effect m $ ia:axs
+  where
+    ia = return . converter comp . Miso.initialAction . app $ comp
+
 subs :: Component pa pm ca cm -> [Sub pa pm]
-subs comp = convertSub <$> csubs
+subs comp = subMap comp <$> csubs
   where
     csubs = Miso.subs . app $ comp
-    convertSub = subMap (updaterAction comp)
-                 (Miso.update . app $ comp)
-                 (interface comp)
-
-
-converter :: Component pa pm ca cm -> Converter ca pa
-converter comp = makeConverter
-                 (updaterAction comp)
-                 (Miso.update . app $ comp)
-                 (interface comp)
-
-addInitialAction :: pa -> Component pa pm ca cm -> pa
-addInitialAction pa comp = batchActions (updaterAction comp) [pa, initialAction comp]
-
-batchActions :: UpdaterAction action model -> [action] -> action
-batchActions ua actions = ua $ \m -> Effect m (return <$> actions)
 
 batchSubs :: [Sub action model] -> Sub action model
 batchSubs = foldr combine (\_ _ -> return ())
   where
     combine sub1 sub2 = \getm sink -> sub1 getm sink >> sub2 getm sink
 
-subMap :: UpdaterAction pa pm -> UpdateFn ca cm -> Interface pa pm ca cm -> Sub ca cm
-       -> Sub pa pm
-subMap ua cu i csub getpm sinkpa =
-  csub (get (lens i) <$> getpm) (sinkpa . makeConverter ua cu i)
+subMap :: Component pa pm ca cm -> Sub ca cm -> Sub pa pm
+subMap comp csub getpm sinkpa =
+  csub (get (lens comp) <$> getpm) (sinkpa . converter comp)
 
-makeConverter :: UpdaterAction pAction pModel
-              -> UpdateFn cAction cModel
-              -> Interface pAction pModel cAction cModel
-              -> Converter cAction pAction
-makeConverter ua cu i ca = ua $ makeUpdater ua cu i ca
-
-makeUpdater :: UpdaterAction pAction pModel
-            -> UpdateFn cAction cModel
-            -> Interface pAction pModel cAction cModel
-            -> cAction
-            -> Updater pAction pModel
-makeUpdater ua cu i ca pm =
-  let cm = get (lens i) pm
+updater :: Component pa pm ca cm -> pm -> ca
+        -> (ca -> cm -> pm -> Effect pa pm)
+        -> Effect pa pm
+updater comp pm ca reaction =
+  let cm = get (lens comp) pm
+      cu = Miso.update . app $ comp
       (Effect cm' caxs) = cu ca cm
-      (Effect pm' paxs) = (reaction i) ca cm $ (set (lens i)) cm' pm
+      (Effect pm' paxs) = reaction ca cm $ (set (lens comp)) cm' pm
   in
-    Effect pm' $ (fmap (ua . makeUpdater ua cu i) <$> caxs) ++ paxs
+    Effect pm' $ (fmap (converter comp) <$> caxs) ++ paxs
 
+prismify :: Prism' s m -> App m a -> App s a
+prismify p app' = app'
+  { Miso.model = review p  $ Miso.model app'
+  , Miso.update = update'
+  , Miso.view = view'
+  , Miso.subs = fixsub <$> Miso.subs app'
+  }
+  where
+    update' a pm = case preview p pm of
+      Just m -> review p <$> Miso.update app' a m
+      Nothing -> return pm
 
-{-maybeifyApp :: App model action -> App (model) action
-maybeifyApp a = a {
-    Miso.model = Just (Miso.model a)
-  , 
-                }
--}
+    view' pm = case preview p pm of
+      Just m -> Miso.view app' m
+      Nothing -> Miso.div_ [] []
+
+    fixsub msub getpm sink =
+      msub (fromMaybe (Miso.model app') . preview p <$> getpm)
+      $ \action -> do
+        pm <- getpm
+        case preview p pm of
+          Nothing -> return ()
+          Just _ -> sink action

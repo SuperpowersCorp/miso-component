@@ -103,7 +103,7 @@ viewMap pm comp viewcm wrapper = fmap (C.converter comp)
                                  <$> Map.mapMaybeWithKey viewModel' m
   where
     viewModel' k cm = wrapper k cm (SendAction k <$> viewcm cm)
-    m = get (C.lens . C.interface $ comp) pm
+    m = get (C.lens comp) pm
 
 converter :: Component pa pm (Action k ca cm) (Model k cm) -> k -> Converter ca pa
 converter comp k = C.converter comp . SendAction k

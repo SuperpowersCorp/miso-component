@@ -4,7 +4,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 
 -- | Haskell module declaration
-module Main where
+module Demo.Concise where
 
 -- | Miso framework import
 import Miso

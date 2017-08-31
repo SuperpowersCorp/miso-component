@@ -4,7 +4,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Miso.Component.Many where
+module Miso.Concise.Many where
 
 import Miso (Effect(Effect), App(App), View, Sub, div_
             , defaultEvents)
@@ -12,8 +12,8 @@ import Miso.Lens (get, set, Lens')
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Miso
-import qualified Miso.Component as C
-import Miso.Component (Component)
+import qualified Miso.Concise as C
+import Miso.Concise (Component)
 
 data Model cm = Model {
     nextId :: Int

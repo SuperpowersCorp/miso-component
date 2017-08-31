@@ -4,7 +4,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Miso.Component.CleanMap where
+module Miso.Concise.Map where
 
 import Miso (Effect(Effect), App(App), View, Sub, div_
             , defaultEvents)
@@ -12,9 +12,9 @@ import Miso.Lens (get, set, Lens')
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Miso
-import qualified Miso.Clean as C
-import Miso.Clean ( Component
-                  , Converter )
+import qualified Miso.Concise as C
+import Miso.Concise ( Component
+                    , Converter )
 
 type Model k cm = Map k cm
 
@@ -103,7 +103,7 @@ viewMap pm comp viewcm wrapper = fmap (C.converter comp)
                                  <$> Map.mapMaybeWithKey viewModel' m
   where
     viewModel' k cm = wrapper k cm (SendAction k <$> viewcm cm)
-    m = get (C.lens comp) pm
+    m = get (C.lens . C.interface $ comp) pm
 
 converter :: Component pa pm (Action k ca cm) (Model k cm) -> k -> Converter ca pa
 converter comp k = C.converter comp . SendAction k

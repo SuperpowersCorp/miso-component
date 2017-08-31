@@ -4,7 +4,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 
 -- | Haskell module declaration
-module Main where
+module Demo.Prism where
 
 -- | Miso framework import
 import Miso
@@ -12,16 +12,15 @@ import Miso.String (MisoString, ms)
 import Data.Monoid ((<>))
 import qualified Miso.String as Text
 --import qualified AlarmClock
-import qualified Demo.Component.Timer as Timer
-import qualified Demo.Component.EditLabel as EditLabel
+import qualified Timer
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Control.Lens ((^.), (&), (.~), (%~), makeLenses, Lens'
                     , makePrisms, preview)
-import Miso.Component (Converter, Updater, Component)
-import qualified Miso.Component as C
+import Miso.Clean (Converter, Updater, Component)
+import qualified Miso.Clean as C
 --import qualified Miso.Component.Many as Many
-import qualified Miso.Component.Map as CMap
+import qualified Miso.Component.CleanMap as CMap
 import Miso.Lens ( makeLens )
 
 type Text = MisoString
@@ -34,9 +33,8 @@ data PageChoice = LoggedOut
 makePrisms ''PageChoice
 
 -- | Type synonym for an application model
-data Model = Model
-  { _input :: EditLabel.Model
-  , _page :: PageChoice
+data Model = Model {
+    _page :: PageChoice
   , _messageLog :: [Text]
   } deriving (Eq, Show)
 makeLenses ''Model
@@ -54,7 +52,6 @@ data Action
 data ComponentTag
   = Timer1 Timer.Action
   | Timer2 Timer.Action
-  | EditLabel EditLabel.Action
 
 -- | Entry point for a miso application
 main :: IO ()
@@ -65,14 +62,13 @@ main = do
   where
     initialAction =  Init
     model  = Model
-             (C.initialModel inputboxComp)
              LoggedOut
              [ "Welcome to the app."
              , "Start clicking buttons." ]
     update = updateModel
     view   = viewModel
     events = defaultEvents
-    subs   = []
+    subs   = [ keyboardSub $ LogMessage . ms . show]
              ++ C.subs timer1Comp
              ++ C.subs timer2Comp
 
@@ -97,10 +93,6 @@ updateModel (ComponentUpdater ca) m = case ca of
     Timer.Buzz -> m' <# return (LogMessage "Timer 2 is buzzing!")
     _ -> return m'
 
-  EditLabel a -> C.updater inputboxComp m a $ \ca' _ m' -> case ca' of
-    EditLabel.SetLabel t -> m' <# return (LogMessage $ "Label changed: " <> t)
-    _ -> return m'
-
 -- | Constructs a virtual DOM from a model
 viewModel :: Model -> View Action
 viewModel m = div_ [] [
@@ -114,8 +106,6 @@ viewModel m = div_ [] [
   PageTimer2 _ -> div_ [] [ div_ [] [ text "Timer 1:" ]
                           , C.view m timer2Comp
                           , button_ [ onClick Logout ] [ text "Logout" ] ]
-  , div_ [] [ C.view m inputboxComp ]
-  , h3_ [] [ text "Log:" ]
   , div_ [] $ flip fmap (m ^. messageLog) $ \msg ->
     div_ [] [ text msg ]
   ]
@@ -133,11 +123,4 @@ timer2Comp = C.Component {
     app = C.prismify _PageTimer2 $ Timer.app 20
   , converter = ComponentUpdater . Timer2
   , lens = page
-  }
-
-inputboxComp :: Component Action Model EditLabel.Action EditLabel.Model
-inputboxComp = C.Component {
-    app = EditLabel.app "Edit this text"
-  , converter = ComponentUpdater . EditLabel
-  , lens = input
   }
