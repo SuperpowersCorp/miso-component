@@ -4,11 +4,23 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Miso.Concise.Map where
+module Miso.Concise.Map
+  ( Model
+  , Action(..)
+  , app
+  , add_
+  , add
+  , addWithAction
+  , addWithModel
+  , remove_
+  , remove
+  , viewMap
+  , converter
+  ) where
 
 import Miso (Effect(Effect), App(App), View, Sub, div_
             , defaultEvents)
-import Miso.Lens (get, set, Lens')
+import Miso.Lens (get)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Miso
@@ -31,6 +43,8 @@ app capp = App {
 data Action k ca cm
   = Add_ k
   | Add k cm ca
+  | AddWithModel k cm
+  | AddWithAction k ca
   | Remove_ k
   | Remove ca k
   | SendAction k ca
@@ -40,12 +54,11 @@ data Action k ca cm
 addItem :: Ord k => Model k cm -> k -> cm -> ca -> Effect (Action k ca cm) (Model k cm)
 addItem m k cm ca = Effect (Map.insert k cm m) [return $ SendAction k ca]
 
-deleteItem :: Ord k =>  Model k cm -> k -> Model k cm
-deleteItem m k = Map.delete k m
-
 updateModel :: Ord k => App cm ca -> Action k ca cm -> Model k cm
             -> Effect (Action k ca cm) (Model k cm)
 updateModel app' (Add_ k) m = addItem m k (Miso.model app') (Miso.initialAction app')
+updateModel app' (AddWithAction k ca) m = addItem m k (Miso.model app') ca
+updateModel app' (AddWithModel k cm) m = addItem m k cm (Miso.initialAction app')
 updateModel _ (Add k cm ca) m = addItem m k cm ca
 updateModel _ (Remove_ k) m = return $ Map.delete k m
 updateModel app' (Remove ca k) m = flip (maybe (return $ Map.delete k m))
@@ -84,6 +97,12 @@ spreadSub app' csub getm sinka = csub getcm spreadSink
 
 add_ :: Component pa pm (Action k ca cm) (Model k cm) -> k -> pa
 add_ comp = C.converter comp . Add_
+
+addWithAction :: Component pa pm (Action k ca cm) (Model k cm) -> k -> ca -> pa
+addWithAction comp k = C.converter comp . AddWithAction k
+
+addWithModel :: Component pa pm (Action k ca cm) (Model k cm) -> k -> cm -> pa
+addWithModel comp k = C.converter comp . AddWithModel k
 
 add :: Component pa pm (Action k ca cm) (Model k cm) -> k -> cm -> ca -> pa
 add comp k cm = C.converter comp . Add k cm

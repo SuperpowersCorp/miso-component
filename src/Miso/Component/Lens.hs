@@ -18,3 +18,4 @@ infixr 4 %~
 (&) :: a -> (a -> b) -> b
 a & f = f a
 infixl 1 &
+

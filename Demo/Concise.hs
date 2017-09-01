@@ -10,16 +10,14 @@ module Demo.Concise where
 import Miso
 import Miso.String (MisoString, ms)
 import Data.Monoid ((<>))
-import qualified Miso.String as Text
---import qualified AlarmClock
-import qualified Timer
+import qualified Demo.Component.Timer as Timer
 import qualified Data.Map as Map
 import Data.Map (Map)
-import Control.Lens ((^.), (&), (.~), (%~), makeLenses, Lens')
-import Miso.Component (Converter, Updater, Component)
-import qualified Miso.Component as C
-import qualified Miso.Component.Many as Many
-import qualified Miso.Component.Map as CMap
+import Control.Lens ((^.), (&), (%~), makeLenses)
+import Miso.Concise (Updater, Component)
+import qualified Miso.Concise as C
+import qualified Miso.Concise.Many as Many
+import qualified Miso.Concise.Map as CMap
 
 type Text = MisoString
 
@@ -83,7 +81,6 @@ viewModel m = div_ [] [
  , div_ [] [
        div_ [] [ text "Map Timers:" ]
      , viewMTimers (m ^. mtimers)
---     , C.view m mtimersComp
      ]
  , div_ [] [ text "Some other Timers" ]
  , C.view m timer1Comp

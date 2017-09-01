@@ -8,6 +8,7 @@ module Miso.Concise where
 -- | Miso framework import
 import Miso (Effect(Effect), App, View, Sub)
 import Miso.Lens (get, set, Lens')
+import Data.Maybe (fromMaybe)
 import qualified Miso
 
 data Interface pAction pModel cAction cModel = Interface {
@@ -92,4 +93,38 @@ makeUpdater ua cu i ca pm =
       (Effect pm' paxs) = (reaction i) ca cm $ (set (lens i)) cm' pm
   in
     Effect pm' $ (fmap (ua . makeUpdater ua cu i) <$> caxs) ++ paxs
+
+{- A nicer definition if you're using Control.Lens:
+
+import Control.Lens (Prism', review, preview)
+import qualified Miso.Component as C
+
+prismify :: Prism' s m -> App m a -> App s a
+prismify p = C.prismify (review p) (preview p)
+
+-}
+
+prismify :: (m -> s) -> (s -> Maybe m) -> App m a -> App s a
+prismify review preview app' = app'
+  { Miso.model = review $ Miso.model app'
+  , Miso.update = update'
+  , Miso.view = view'
+  , Miso.subs = fixsub <$> Miso.subs app'
+  }
+  where
+    update' a pm = case preview pm of
+      Just m -> review <$> Miso.update app' a m
+      Nothing -> return pm
+
+    view' pm = case preview pm of
+      Just m -> Miso.view app' m
+      Nothing -> Miso.div_ [] []
+
+    fixsub msub getpm sink =
+      msub (fromMaybe (Miso.model app') . preview <$> getpm)
+      $ \action -> do
+        pm <- getpm
+        case preview pm of
+          Nothing -> return ()
+          Just _ -> sink action
 

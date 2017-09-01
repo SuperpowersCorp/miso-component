@@ -15,19 +15,21 @@ library
                      , Miso.Component.Lens
   build-depends:       base
                      , containers
-                     , miso
-                     , time
                      , lens
+                     , miso
+                     , profunctors
+                     , time
 
   default-language:    Haskell2010
 
 
 executable app-exe
   main-is:             Main.hs
-  build-depends:       base
-                     , app
+  build-depends:       app
+                     , base
                      , containers
-                     , miso
-                     , time
                      , lens
+                     , miso
+                     , profunctors
+                     , time
   default-language:    Haskell2010

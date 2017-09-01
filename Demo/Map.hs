@@ -8,27 +8,23 @@ module Demo.Map where
 
 -- | Miso framework import
 import Miso
-import Miso.String (MisoString, ms)
+import Miso.String (MisoString)
 import Data.Monoid ((<>))
-import qualified Miso.String as Text
---import qualified AlarmClock
-import qualified Timer
+import qualified Demo.Component.Timer as Timer
+import qualified Demo.Component.EditLabel as Label
 import qualified Data.Map as Map
 import Data.Map (Map)
-import Control.Lens ((^.), (&), (.~), (%~), makeLenses, Lens')
-import Miso.Clean (Converter, Updater, Component)
-import qualified Miso.Clean as C
---import qualified Miso.Component.Many as Many
-import qualified Miso.Component.CleanMap as CMap
+import Control.Lens ((^.), makeLenses)
+import Miso.Component (Component)
+import qualified Miso.Component as C
+import qualified Miso.Component.Map as CMap
 
 type Text = MisoString
 
 -- | Type synonym for an application model
 data Model = Model {
-    _timer1 :: !Timer.Model
-  , _timer2 :: !Timer.Model
+    _label :: Label.Model
   , _mtimers :: Map Text Timer.Model
-  , _messageLog :: [Text]
   } deriving (Eq, Show)
 makeLenses ''Model
 
@@ -36,101 +32,77 @@ makeLenses ''Model
 data Action
   = NoOp
   | Init
-  | LogMessage Text
+  | Log Text
   | ComponentUpdater ComponentTag
 
 data ComponentTag
-  = Timer1 Timer.Action
-  | Timer2 Timer.Action
+  = Label Label.Action
   | MTimers (CMap.Action Text Timer.Action Timer.Model)
 
--- | Entry point for a miso application
-main :: IO ()
-main = do
-  putStrLn "I am a friend of all."
---  Timer.main
-  startApp App {..}
+app :: App Model Action
+app = App {..}
   where
     initialAction =  Init
     model  = Model
-             (C.initialModel timer1Comp)
-             (C.initialModel timer2Comp)
+             (C.initialModel labelComp)
              Map.empty
-             [ "Welcome to the app."
-             , "Start clicking buttons." ]
     update = updateModel
     view   = viewModel
     events = defaultEvents
-    subs   = [ keyboardSub $ LogMessage . ms . show]
-             ++ C.subs timer1Comp
-             ++ C.subs timer2Comp
-             ++ C.subs mtimersComp
+    subs   = C.subs labelComp ++ C.subs mtimersComp
+
+-- | Entry point for a miso application
+main :: IO ()
+main = startApp app
 
 -- | Updates model, optionally introduces side effects
 updateModel :: Action -> Model -> Effect Action Model
 updateModel Init m = (Effect m $ fmap return [ CMap.add_ mtimersComp "Jones"
                                              , CMap.add_ mtimersComp "Angel-Puff"
                                              , CMap.add_ mtimersComp "Willy Winkins" ])
-                     `C.addInitialAction` timer1Comp
-                     `C.addInitialAction` timer1Comp
+                     `C.addInitialAction` labelComp
                      `C.addInitialAction` mtimersComp
 updateModel NoOp m = return m
-updateModel (LogMessage msg) m = return $ m & messageLog %~ (++[msg])
+updateModel (Log _) m = return m
 updateModel (ComponentUpdater ca) m = case ca of
-  Timer1 a -> C.updater timer1Comp m a $ \ca' _ m' -> case ca' of
-    Timer.Start -> m' <# return (LogMessage "Timer 1 started.")
-    Timer.Buzz -> m' <# return (LogMessage "Timer 1 is buzzing!")
-    _ -> return m'
-
-  Timer2 a -> C.updater timer2Comp m a $ \ca' _ m' -> case ca' of
-    Timer.Start -> m' <# return (LogMessage "Timer 2 started.")
-    Timer.Buzz -> m' <# return (LogMessage "Timer 2 is buzzing!")
-    _ -> return m'
+  Label a -> C.updater labelComp m a C.noReaction
 
   MTimers a -> C.updater mtimersComp m a $ \ca' _ m' -> case ca' of
     CMap.RecvAction k ta _tm ->
       case ta of
       Timer.Buzz -> m' <# do
-        putStrLn $ show k ++ " is BUZZZING!!!!!!"
-        return NoOp
+        return . Log $ k <> " is BUZZZING!!!!!!"
       _ -> return m'
     _ -> return m'
 
 -- | Constructs a virtual DOM from a model
 viewModel :: Model -> View Action
 viewModel m = div_ []
- [ text "Hey there"
- , div_ [] [
-       div_ [] [ text "Map Timers:" ]
-       , viewMTimers (m ^. mtimers)
-     ]
- , div_ [] [ text "Some other Timers" ]
- , C.view m timer1Comp
- , C.view m timer2Comp
- , div_ [] $ flip fmap (m ^. messageLog) $ \msg ->
-     div_ [] [ text msg ]
+ [ div_ [] [ C.view m labelComp
+           , let newName = m ^. (C.lens labelComp) . Label.labelVal in
+             if Map.member newName (m ^. (C.lens mtimersComp))
+               then span_ [] [ text $ "\"" <> newName <> "\" has been added."]
+               else button_ [ onClick $ CMap.add_ mtimersComp newName ]
+                    [ text $ "Add a new timer named \"" <> newName <> "\"" ] ]
+ , h3_ [] [ text "Your Timer Collection" ]
+ , div_ [] [ text "Press Space-Bar to toggle all timers." ]
+ , div_ [] [ viewMTimers $ m ^. mtimers ]
  ]
 
 
 viewMTimers :: Map Text Timer.Model -> View Action
 viewMTimers = div_ [] . fmap vt . Map.toList
   where
-    vt (k, tm) = div_ [] [ CMap.converter mtimersComp k <$> Timer.viewModel tm
+    vt (k, tm) = div_ [] [ h4_ [] [ text k ]
+                         , CMap.converter mtimersComp k <$> Timer.viewModel tm
                          , button_ [ onClick $ CMap.remove_ mtimersComp k ]
                            [ text $ "Delete \"" <> k <> "\" Timer" ] ]
 
-timer1Comp :: Component Action Model Timer.Action Timer.Model
-timer1Comp = C.Component {
-    app = Timer.app 10
-  , converter = ComponentUpdater . Timer1
-  , lens = timer1
-  }
-
-timer2Comp :: Component Action Model Timer.Action Timer.Model
-timer2Comp = C.Component {
-    app = Timer.app 20
-  , converter = ComponentUpdater . Timer2
-  , lens = timer2
+labelComp :: Component Action Model Label.Action Label.Model
+labelComp = C.Component {
+    app = Label.app "NewTimer"
+  , converter = ComponentUpdater . Label
+  , lens = label
   }
 
 mtimersComp :: Component Action Model

@@ -8,21 +8,15 @@ module Main where
 
 -- | Miso framework import
 import Miso
-import Miso.String (MisoString, ms)
+import Miso.String (MisoString)
 import Data.Monoid ((<>))
-import qualified Miso.String as Text
 --import qualified AlarmClock
 import qualified Demo.Component.Timer as Timer
-import qualified Demo.Component.EditLabel as EditLabel
-import qualified Data.Map as Map
-import Data.Map (Map)
-import Control.Lens ((^.), (&), (.~), (%~), makeLenses, Lens'
-                    , makePrisms, preview)
-import Miso.Component (Converter, Updater, Component)
+import Control.Lens ((^.), (&), (%~), makeLenses, makePrisms)
+import Miso.Component (Component)
 import qualified Miso.Component as C
---import qualified Miso.Component.Many as Many
-import qualified Miso.Component.Map as CMap
-import Miso.Lens ( makeLens )
+import qualified Demo.Map as DemoMap
+import qualified Demo.Prism as DemoPrism
 
 type Text = MisoString
 
@@ -35,8 +29,8 @@ makePrisms ''PageChoice
 
 -- | Type synonym for an application model
 data Model = Model
-  { _input :: EditLabel.Model
-  , _page :: PageChoice
+  { _demoPrism :: DemoPrism.Model
+  , _demoMap :: DemoMap.Model
   , _messageLog :: [Text]
   } deriving (Eq, Show)
 makeLenses ''Model
@@ -46,15 +40,11 @@ data Action
   = NoOp
   | Init
   | LogMessage Text
-  | LoginTimer1
-  | LoginTimer2
-  | Logout
   | ComponentUpdater ComponentTag
 
 data ComponentTag
-  = Timer1 Timer.Action
-  | Timer2 Timer.Action
-  | EditLabel EditLabel.Action
+  = DemoPrism DemoPrism.Action
+  | DemoMap DemoMap.Action
 
 -- | Entry point for a miso application
 main :: IO ()
@@ -65,79 +55,56 @@ main = do
   where
     initialAction =  Init
     model  = Model
-             (C.initialModel inputboxComp)
-             LoggedOut
+             (C.initialModel demoPrismComp)
+             (C.initialModel demoMapComp)
              [ "Welcome to the app."
              , "Start clicking buttons." ]
     update = updateModel
     view   = viewModel
     events = defaultEvents
-    subs   = []
-             ++ C.subs timer1Comp
-             ++ C.subs timer2Comp
+    subs   = C.subs demoPrismComp
+             ++ C.subs demoMapComp
 
 -- | Updates model, optionally introduces side effects
 updateModel :: Action -> Model -> Effect Action Model
 updateModel Init m = return m
+                     `C.addInitialAction` demoPrismComp
+                     `C.addInitialAction` demoMapComp
 updateModel NoOp m = return m
-updateModel LoginTimer1 m = (return $ m & page .~ C.initialModel timer1Comp)
-                            `C.addInitialAction` timer1Comp
-updateModel LoginTimer2 m = (return $ m & page .~ C.initialModel timer2Comp)
-                            `C.addInitialAction` timer2Comp
-updateModel Logout m = return $ m & page .~ LoggedOut
 updateModel (LogMessage msg) m = return $ m & messageLog %~ (++[msg])
 updateModel (ComponentUpdater ca) m = case ca of
-  Timer1 a -> C.updater timer1Comp m a $ \ca' _ m' -> case ca' of
-    Timer.Start -> m' <# return (LogMessage "Timer 1 started.")
-    Timer.Buzz -> m' <# return (LogMessage "Timer 1 is buzzing!")
+  DemoPrism a -> C.updater demoPrismComp m a $ \ca' _ m' -> case ca' of
+    DemoPrism.Log t -> m' <# return (LogMessage $ "DemoPrism: " <> t)
     _ -> return m'
 
-  Timer2 a -> C.updater timer2Comp m a $ \ca' _ m' -> case ca' of
-    Timer.Start -> m' <# return (LogMessage "Timer 2 started.")
-    Timer.Buzz -> m' <# return (LogMessage "Timer 2 is buzzing!")
-    _ -> return m'
-
-  EditLabel a -> C.updater inputboxComp m a $ \ca' _ m' -> case ca' of
-    EditLabel.SetLabel t -> m' <# return (LogMessage $ "Label changed: " <> t)
+  DemoMap a -> C.updater demoMapComp m a $ \ca' _ m' -> case ca' of
+    DemoMap.Log t -> m' <# return (LogMessage $ "DemoMap: " <> t)
     _ -> return m'
 
 -- | Constructs a virtual DOM from a model
 viewModel :: Model -> View Action
-viewModel m = div_ [] [
-  case m ^. page of
-  LoggedOut -> div_ [] [ text "You're not logged in, idiot."
-                      , button_ [ onClick LoginTimer1 ] [ text "Login to Timer1" ]
-                      , button_ [ onClick LoginTimer2 ] [ text "Login to Timer2" ] ]
-  PageTimer1 _ -> div_ [] [ div_ [] [ text "Timer 1:" ]
-                          , C.view m timer1Comp
-                          , button_ [ onClick Logout ] [ text "Logout" ] ]
-  PageTimer2 _ -> div_ [] [ div_ [] [ text "Timer 1:" ]
-                          , C.view m timer2Comp
-                          , button_ [ onClick Logout ] [ text "Logout" ] ]
-  , div_ [] [ C.view m inputboxComp ]
-  , h3_ [] [ text "Log:" ]
+viewModel m = div_ []
+  [ h2_ [] [ text "Demo.Prism :" ]
+  , C.view m demoPrismComp
+  , h2_ [] [ text "Demo.Map :" ]
+  , C.view m demoMapComp
+  , h1_ [] [ text "Log:" ]
   , div_ [] $ flip fmap (m ^. messageLog) $ \msg ->
     div_ [] [ text msg ]
   ]
 
 
-timer1Comp :: Component Action Model Timer.Action PageChoice
-timer1Comp = C.Component {
-    app = C.prismify _PageTimer1 $ Timer.app 10
-  , converter = ComponentUpdater . Timer1
-  , lens = page
+demoPrismComp :: Component Action Model DemoPrism.Action DemoPrism.Model
+demoPrismComp = C.Component {
+    app = DemoPrism.app
+  , converter = ComponentUpdater . DemoPrism
+  , lens = demoPrism
   }
 
-timer2Comp :: Component Action Model Timer.Action PageChoice
-timer2Comp = C.Component {
-    app = C.prismify _PageTimer2 $ Timer.app 20
-  , converter = ComponentUpdater . Timer2
-  , lens = page
-  }
 
-inputboxComp :: Component Action Model EditLabel.Action EditLabel.Model
-inputboxComp = C.Component {
-    app = EditLabel.app "Edit this text"
-  , converter = ComponentUpdater . EditLabel
-  , lens = input
+demoMapComp :: Component Action Model DemoMap.Action DemoMap.Model
+demoMapComp = C.Component {
+    app = DemoMap.app
+  , converter = ComponentUpdater . DemoMap
+  , lens = demoMap
   }
