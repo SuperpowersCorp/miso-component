@@ -11,21 +11,13 @@ import Miso
 import Miso.String (MisoString)
 import Data.Monoid ((<>))
 --import qualified AlarmClock
-import qualified Demo.Component.Timer as Timer
-import Control.Lens ((^.), (&), (%~), makeLenses, makePrisms)
+import Control.Lens ((^.), (&), (%~), makeLenses)
 import Miso.Component (Component)
 import qualified Miso.Component as C
 import qualified Demo.Map as DemoMap
 import qualified Demo.Prism as DemoPrism
 
 type Text = MisoString
-
-data PageChoice = LoggedOut
-                | PageTimer1 Timer.Model
-                | PageTimer2 Timer.Model
-                deriving (Eq, Show)
-
-makePrisms ''PageChoice
 
 -- | Type synonym for an application model
 data Model = Model

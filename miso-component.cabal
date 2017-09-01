@@ -1,6 +1,6 @@
-name:                app
+name:                miso-component
 version:             0.1.0.0
-synopsis:            First miso app
+synopsis:            easy components for miso
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
@@ -15,21 +15,6 @@ library
                      , Miso.Component.Lens
   build-depends:       base
                      , containers
-                     , lens
-                     , miso
-                     , profunctors
-                     , time
+                     , miso >= 0.7.5.0
 
-  default-language:    Haskell2010
-
-
-executable app-exe
-  main-is:             Main.hs
-  build-depends:       app
-                     , base
-                     , containers
-                     , lens
-                     , miso
-                     , profunctors
-                     , time
   default-language:    Haskell2010

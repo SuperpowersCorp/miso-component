@@ -4,6 +4,11 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+{- a Many is a collection of components.
+   It handles generating an id for each component.
+   It needs to be re-written using Concise.Map
+-}
+
 module Miso.Concise.Many where
 
 import Miso (Effect(Effect), App(App), View, Sub, div_

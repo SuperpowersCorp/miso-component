@@ -1,0 +1,33 @@
+name:                miso-component-demo
+version:             0.1.0.0
+synopsis:            easy components for miso demo
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Demo.Concise
+                     , Demo.Prism
+                     , Demo.Map
+                     , Demo.Component.Timer
+                     , Demo.Component.EditLabel
+  build-depends:       base
+                     , containers
+                     , lens
+                     , miso-component
+                     , miso >= 0.7.5.0
+
+  default-language:    Haskell2010
+
+
+executable miso-component-demo-exe
+  main-is:             Main.hs
+  build-depends:       miso-component-demo
+                     , base
+                     , containers
+                     , lens
+                     , miso-component
+                     , miso >= 0.7.5.0
+                     , time
+  default-language:    Haskell2010
