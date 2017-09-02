@@ -221,8 +221,43 @@ See a full example of using `prismify` in `demo/src/Prism.hs`
 
 The other thing that's often really useful but tediously difficult is
 to store components dynamically inside a Map. To help with this, we
-made the `Miso.Component.Map` library.
+made the `Miso.Component.Map` module.
 
+To use it, import it and declare a standard Haskell Map in your parent model:
+```
+import Data.Map (Map)
+import qualified Miso.Component.Map as CMap
 
+data Model = Model { timers :: Map Int Timer.Model }
+```
+
+Then declare a timer map component:
+
+```
+timersComp :: Component Action Model
+              (CMap.Action Int Timer.Action Timer.Model)
+              (Map Int Timer.Model)
+timersComp = C.Component {
+    app = CMap.app $ Timer.app 15
+  , converter = HandleTimersAction
+  , lens = timers
+  }
+```
+
+Now you can use `timersComp` to get `subs`, a `view`, and to do
+declare an `updater` function that automatically delegates actions to
+the correct model in the map. The Map Component acts as a sort of
+middle-man between the parent model and its child components.
+
+Here are some helpful functions for working with the map of components:
+* `add_`, `addWithModel`, `addWithAction`, and `add` generate
+parent actions for that add a new component to the map.
+* `remove` and `remove_` delete a component from the map and
+  optionally let you specify a final action for the child component to
+  complete in its last dying gasp.
+* `viewMap` returns a map of `View`s for each component that can be displayed in the
+  parent model. It also allows you to wrap a `View` around each
+  component so you can easily add parent controls for each, like a
+  delete button.
 
 You can see a demo of using it in `/demo/src/Demo/Map.hs`.
