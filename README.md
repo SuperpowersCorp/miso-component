@@ -93,19 +93,136 @@ purposefully undo a child action's effect on its model)
 There are four other convenience functions for incorporating the
 component into the parent:
 
-* `initialModel` -- so `C.initialModel
-timer1Comp` would give you the timer's model.
-* `addInitialAction` -- mappends a component's initial action as a
-parent `Effect`
-* `view` -- `C.view m timer1Comp` (where m is parent's model) can be
-called in the parent's view to display the child's view. The child's
-view actions are automatically mapped to the parent.
-* `subs` -- `C.subs timer1Comp` gives you a list of the child's
-  subs converted to parent subs, so you can just `++` them to the
-  parent's subs list.
+### initialModel
+```
+initialModel :: Component pa pm ca cm -> cm
+```
+Grabs the initial model out of any component.
+
+### addInitialAction
+```
+addInitialAction :: Effect pa pm -> Component pa pm ca cm -> Effect pa pm
+```
+Use this to mappend a component's initial actions to an effect. In the
+parent, set an initial action to something, say, `Init`, then in the
+your `updateModel`:
+
+```
+updateModel Init m = noEff m
+                     `C.addInitialAction` component1
+                     `C.addInitialAction` component2
+```
+
+### view
+```
+view :: pm -> Component pa pm ca cm -> View pa
+```
+
+`view` takes the parent's current model and the component and gives
+you back a view of the component that returns a parent's action. So
+you can use it in the parent's `viewModel`:
+
+```
+viewModel m = div_ []
+  [ button_ [ onClick SomeParentAction ] [ text "click here" ]
+  , C.view m someComponent
+  ]
+```
+
+### subs
+```
+subs :: Component pa pm ca cm -> [Sub pa pm]
+```
+Returns a list of the component's subs, mapped properly as parent
+subs, so you can just append them to the parent's subs:
+
+```
+app :: App Model Action
+app = App { ...
+          , subs = [ someParentSub ]
+                   ++ C.subs component1
+                   ++ C.subs component2
+          }
+```
+
+## Components in Union Types
+
+Oftentimes you might want to have a variety of components in a union
+type. For instance, you could make each page of your site a component
+and wrap them all up in one union type that can be selected by a page
+navigation.
+
+For example, let's say we have a `Page1` component, a `Page2`
+component, and an `ErrorPage` that just tells you there was an error,
+but isn't really a component. They can be represented as a union type:
+
+```
+data Pages = ErrorPage
+             | Page1 Page1.Model
+             | Page2 Page2.Model
+```
+
+Recall that you have to specify a Lens to get and set the model of
+each component, but in this case you can't be sure if the component
+you want is really there or not since `Pages` might be an `ErrorPage`
+or `Page1` when you want `Page2`, etc.
+
+Really, it's more like you'd want to set a Prism to access the model
+instead of a Lens, and if the wanted model isn't there at the moment,
+just ignore any actions/subs aimed at that component.
+
+To solve this, we instead transform the component's `App` to take the
+union type its in as a model instead, and it only updates if the union
+type is the correct variation.
+
+This `prismify` function does this automatically to any `App`:
+
+```
+prismify :: (m -> s) -> (s -> Maybe m) -> App m a -> App s a
+```
+
+The first two functions are essentially `review _SomePrism` and
+`preview _SomePrism`. `s` is the sum/union type and `m` is the component's
+model. If your app is already importing `Control.Lens`,
+you could make a prismify that just takes a Prism:
+
+```
+prismify :: Prism' s m -> App m a -> App s a
+prismify p = C.prismify (review p) (preview p)
+```
+
+So, back to the `Pages` example... Supposing the `Pages`
+type is stored in the parent model under the lens `pages`, and there's
+an action in the parent action `HandlePage1Action Page1.Action`, to
+make a component for `Page1`, using the Prism `prismify`
+defined above:
+
+```
+page1Comp :: Component Action Model Page1.Action Pages
+page1Comp = C.Component {
+    app = prismify _Page1 $ Page1.app
+  , converter = HandlePage1Action
+  , lens = pages
+  }
+```
+
+Notice that the model type of this component is `Pages` instead of
+`Page1.Model`. You can treat incorporate this just like a regular
+component, defining an `updater` and reaction for `HandlePage1Action`.
+However, remember that things like `C.initialModel` will return the
+whole union type, so to set the initial page to `Page1`, you could
+just set `pages = C.initialModel page1Comp`. Also, if the pages have
+initial actions, you should add them on to whatever Effect in the
+parent model switches to a new page.
+
+See a full example of using `prismify` in `demo/src/Prism.hs`
 
 ## Maps
 
-It's sort of a hastle, but also very useful, to put components inside
-of a map. To ease the pain, we made the `Miso.Component.Map` library.
+The other thing that's often really useful but tediously difficult is
+to store components dynamically inside a Map. To help with this, we
+made the `Miso.Component.Map` library.
+
+
+
 You can see a demo of using it in `/demo/src/Demo/Map.hs`.
