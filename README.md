@@ -171,9 +171,9 @@ Really, it's more like you'd want to set a Prism to access the model
 instead of a Lens, and if the wanted model isn't there at the moment,
 just ignore any actions/subs aimed at that component.
 
-To solve this, we instead transform the component's `App` to take the
-union type its in as a model instead, and it only updates if the union
-type is the correct variation.
+To do this, we can transform the component's `App` to take the
+union type its inside of as a model instead of the child model itself,
+then only update itself if the union type is the correct variation.
 
 This `prismify` function does this automatically to any `App`:
 
@@ -184,17 +184,17 @@ prismify :: (m -> s) -> (s -> Maybe m) -> App m a -> App s a
 The first two functions are essentially `review _SomePrism` and
 `preview _SomePrism`. `s` is the sum/union type and `m` is the component's
 model. If your app is already importing `Control.Lens`,
-you could make a prismify that just takes a Prism:
+you can make a prismify that just takes a Prism:
 
 ```
 prismify :: Prism' s m -> App m a -> App s a
 prismify p = C.prismify (review p) (preview p)
 ```
 
-So, back to the `Pages` example... Supposing the `Pages`
+Back to the `Pages` example... Supposing the `Pages`
 type is stored in the parent model under the lens `pages`, and there's
 an action in the parent action `HandlePage1Action Page1.Action`, to
-make a component for `Page1`, using the Prism `prismify`
+make a component for `Page1` using the Prism `prismify`
 defined above:
 
 ```
@@ -208,7 +208,8 @@ page1Comp = C.Component {
 
 Notice that the model type of this component is `Pages` instead of
 `Page1.Model`. You can treat incorporate this just like a regular
-component, defining an `updater` and reaction for `HandlePage1Action`.
+component, defining an `updater` and reaction for `HandlePage1Action`,
+and you can define a component for each of the union type constructors.
 However, remember that things like `C.initialModel` will return the
 whole union type, so to set the initial page to `Page1`, you could
 just set `pages = C.initialModel page1Comp`. Also, if the pages have
@@ -244,7 +245,7 @@ timersComp = C.Component {
   }
 ```
 
-Now you can use `timersComp` to get `subs`, a `view`, and to do
+Now you can use `timersComp` to get `subs`, a `view`, and to
 declare an `updater` function that automatically delegates actions to
 the correct model in the map. The Map Component acts as a sort of
 middle-man between the parent model and its child components.
@@ -255,9 +256,46 @@ parent actions for that add a new component to the map.
 * `remove` and `remove_` delete a component from the map and
   optionally let you specify a final action for the child component to
   complete in its last dying gasp.
+* `send` lets to send child actions to specific components in the map
 * `viewMap` returns a map of `View`s for each component that can be displayed in the
   parent model. It also allows you to wrap a `View` around each
   component so you can easily add parent controls for each, like a
   delete button.
 
-You can see a demo of using it in `/demo/src/Demo/Map.hs`.
+The `RecvAction index childAction childModel` action can be pattern
+matched in the reaction function for the map component to snoop and
+react to any messages happening in the components of the map. For
+example, to send out a `Log` action (which is a Parent action)
+whenever a Timer buzzes:
+
+```
+updateModel (HandleTimersAction a) = C.updater timersComp m a $ \ca' _ m' -> case ca' of
+    CMap.RecvAction k ta _tm ->
+      case ta of
+      Timer.Buzz -> m' <# do
+        return . Log $ ms (show k) <> " is BUZZZING!!!!!!"
+      _ -> return m'
+    _ -> return m'
+```
+
+You can see a full demo of using it in `/demo/src/Demo/Map.hs`.
+
+
+## Concise
+
+The `Miso.Concise` module is a variation of `Miso.Component` that
+needs less boilerplate but requires that you put a function in the
+parent's `Action`, which means you can't derive `Show` for it, which
+makes some people sad.
+
+To use it, add an action constructor to the parent Action type
+that takes a function `Model -> Effect Action Model`. Then in the
+`updateModel` function, whenever you get that action, run the function
+on the current model.
+
+This means that you only need to add one extra action and it can
+handle any number of components, instead of having to add one action
+per component. But it's worse for debugging probably runs a little slower,
+so I'd recommend using the `Miso.Component` module instead.
+
+You can see a demo of using `Concise` in `demo/src/Concise.hs`.

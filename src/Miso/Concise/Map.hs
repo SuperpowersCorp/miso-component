@@ -14,6 +14,7 @@ module Miso.Concise.Map
   , addWithModel
   , remove_
   , remove
+  , send
   , viewMap
   , converter
   ) where
@@ -112,6 +113,9 @@ remove_ comp = C.converter comp . Remove_
 
 remove :: Component pa pm (Action k ca cm) (Model k cm) -> ca -> k -> pa
 remove comp finalAction = C.converter comp . Remove finalAction
+
+send :: Component pa pm (Action k ca cm) (Model k cm) -> k -> ca -> pa
+send comp k = C.converter comp . SendAction k
 
 viewMap :: pm
         -> Component pa pm (Action k ca cm) (Model k cm)
